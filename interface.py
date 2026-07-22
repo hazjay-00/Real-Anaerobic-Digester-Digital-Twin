@@ -2,8 +2,13 @@ import streamlit as st
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
+import os
 import pickle
 
+# Check if model exists; if not, train it automatically on deployment
+if not os.path.exists("wastewater_brain_cod.pkl"):
+    import ml_agent  # Running this script downloads Kaggle data and creates the .pkl file
+    
 st.set_page_config(page_title="Anaerobic Digester Digital Twin", layout="wide")
 
 # --- EMERGENCY SYSTEM LOCK ---
