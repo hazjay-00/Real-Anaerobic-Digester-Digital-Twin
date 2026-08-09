@@ -1,3 +1,4 @@
+from simulation_engine import run_plant_simulation
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -57,7 +58,20 @@ predicted_energy_demand_wh = ai_engine.predict(input_array)[0]
 # Convert Watt-hours (Wh) to Kilowatt-hours (kWh) for easier industrial display
 predicted_energy_kwh = predicted_energy_demand_wh / 1000.0
 
-# --- INDUSTRIAL COST & COMPLIANCE CALCULATIONS ---
+# --- DYNAMIC ODE KINETICS & COMPLIANCE CALCULATIONS ---
+# Calculate dilution rate D (Inflow rate / standard digester volume 50,000 m³)
+dilution_rate = slider_flow / 50000.0
+
+# Solve continuous ODE mass balance to retrieve dynamic kinetic effluent COD
+s_effluent, x_biomass, methane_liters = run_plant_simulation(
+    S_inflow=slider_cod_in, 
+    D=dilution_rate, 
+    Temperature=slider_temp
+)
+
+estimated_effluent_cod = max(0.0, s_effluent)
+ENVIRONMENTAL_LIMIT_COD = 100.0
+
 # Power utilities pricing: $0.14 per kWh of energy consumed by blower units
 daily_electrical_cost = predicted_energy_kwh * 0.14
 
@@ -205,9 +219,8 @@ st.markdown("---")
 # --- DOWNLOADABLE SHIFT REPORT ---
 st.subheader("Operational Reporting Metrics")
 
-# FIXED: Removed old biogas indicators to prevent table crashes
 report_data = pd.DataFrame({
-    "Timestamp": [pd.Timestamp.now().strftime("%Y-%m-%d %H:%M:%S")],
+    "Timestamp": [pd.Timestamp.now(tz="UTC").strftime("%Y-%m-%d %H:%M:%S UTC")],
     "Hydraulic Loading (m3/day)": [slider_flow],
     "Influent COD (mg/L)": [slider_cod_in],
     "Process Temp (C)": [slider_temp],
