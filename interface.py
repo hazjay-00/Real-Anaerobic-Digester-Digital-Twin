@@ -175,7 +175,6 @@ with col3:
     )
 
 with col4:
-    with col4:
     # STATISTICAL NOTE: 5.0% acts as a statistical significance floor (p < 0.05).
     # It validates that the model captures real empirical SCADA signal above random noise
     # without manipulating the raw facility-wide grid variance.
