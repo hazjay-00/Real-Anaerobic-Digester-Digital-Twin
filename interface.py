@@ -69,15 +69,12 @@ s_effluent, x_biomass, methane_liters = run_plant_simulation(
     Temperature=slider_temp
 )
 
+# Use dynamic kinetic output for compliance tracking
 estimated_effluent_cod = max(0.0, s_effluent)
 ENVIRONMENTAL_LIMIT_COD = 100.0
 
 # Power utilities pricing: $0.14 per kWh of energy consumed by blower units
 daily_electrical_cost = predicted_energy_kwh * 0.14
-
-# Safe Discharge Estimation logic for water compliance tracking
-estimated_effluent_cod = slider_cod_in * 0.15 # Assuming a baseline biological 85% reduction rate
-ENVIRONMENTAL_LIMIT_COD = 100.0
 
 if estimated_effluent_cod > ENVIRONMENTAL_LIMIT_COD:
     compliance_fine = 2500.00
