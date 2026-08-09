@@ -9,7 +9,7 @@ import pickle
 if not os.path.exists("wastewater_brain_cod.pkl"):
     import ml_agent  # Running this script downloads Kaggle data and creates the .pkl file
     
-st.set_page_config(page_title="Anaerobic Digester Digital Twin", layout="wide")
+st.set_page_config(page_title="Real Anaerobic Digester Digital Twin", layout="wide")
 
 # --- EMERGENCY SYSTEM LOCK ---
 if "kill_switch" not in st.session_state:
@@ -78,29 +78,96 @@ total_facility_overhead = daily_electrical_cost + compliance_fine
 treatment_efficiency = ((slider_cod_in - estimated_effluent_cod) / slider_cod_in) * 100
 
 # --- FINANCIAL DASHBOARD ROW ---
+def status_badge(text, is_ok):
+    color = "#2ecc71" if is_ok else "#e74c3c"
+    return f"<span style='color:{color}; font-size: 0.85rem; font-weight: 500;'>{text}</span>"
+    
 st.subheader("Asset Operational Expense (OPEX) Monitoring")
 fin_col1, fin_col2, fin_col3 = st.columns(3)
+
 with fin_col1:
-    st.metric(label="Blower Grid Energy Expenditures", value=f"${daily_electrical_cost:,.2f} / day", delta="Based on predicted SCADA kW demand", delta_color="inverse")
+    ok_cost = daily_electrical_cost < 100.0  # Safe threshold example
+    st.metric(
+        label="Blower Grid Energy Expenditures",
+        value=f"${daily_electrical_cost:,.2f} / day"
+    )
+    st.markdown(
+        status_badge("Predicted SCADA kW Demand", ok_cost),
+        unsafe_allow_html=True
+    )
+
 with fin_col2:
-    st.metric(label="Regulatory Non-Compliance Penalty Fines", value=f"${compliance_fine:,.2f} / day", delta=compliance_status, delta_color=compliance_color)
+    ok_fine = compliance_fine == 0.0
+    st.metric(
+        label="Regulatory Non-Compliance Penalty Fines",
+        value=f"${compliance_fine:,.2f} / day"
+    )
+    st.markdown(
+        status_badge(compliance_status, ok_fine),
+        unsafe_allow_html=True
+    )
+
 with fin_col3:
-    st.metric(label="Total Combined Overhead Burden", value=f"${total_facility_overhead:,.2f} / day", delta="Total OPEX Risk Matrix")
+    ok_total = total_facility_overhead < 100.0
+    st.metric(
+        label="Total Combined Overhead Burden",
+        value=f"${total_facility_overhead:,.2f} / day"
+    )
+    st.markdown(
+        status_badge("Total OPEX Risk Matrix", ok_total),
+        unsafe_allow_html=True
+    )
 
 st.markdown("---")
 
 # --- TECHNICAL METRICS & KPIs ROW ---
 st.subheader("Live Engineering Performance Indicators")
 col1, col2, col3, col4 = st.columns(4)
+
 with col1:
-    st.metric(label="Measured Hydraulic Loading", value=f"{slider_flow:,.0f} m³/day", delta="Real-Time SCADA Metering")
+    st.metric(
+        label="Measured Hydraulic Loading",
+        value=f"{slider_flow:,.0f} m³/day"
+    )
+    st.markdown(
+        status_badge("Real-Time SCADA Metering", True),
+        unsafe_allow_html=True
+    )
+
 with col2:
-    st.metric(label="Predicted Infrastructure Power Demand", value=f"{predicted_energy_kwh:,.1f} kWh", delta="ML Core Inference Engine")
+    st.metric(
+        label="Predicted Infrastructure Power Demand",
+        value=f"{predicted_energy_kwh:,.1f} kWh"
+    )
+    st.markdown(
+        status_badge("ML Core Inference Engine", True),
+        unsafe_allow_html=True
+    )
+
 with col3:
-    st.metric(label="Estimated Effluent Discharge", value=f"{estimated_effluent_cod:.1f} mg/L", delta=f"EPA Limit Threshold: <{ENVIRONMENTAL_LIMIT_COD} mg/L", delta_color="inverse" if estimated_effluent_cod > ENVIRONMENTAL_LIMIT_COD else "normal")
+    ok_effluent = estimated_effluent_cod <= ENVIRONMENTAL_LIMIT_COD
+    st.metric(
+        label="Estimated Effluent Discharge",
+        value=f"{estimated_effluent_cod:.1f} mg/L"
+    )
+    st.markdown(
+        status_badge(
+            f"EPA Limit Threshold: <{ENVIRONMENTAL_LIMIT_COD} mg/L" if ok_effluent else "EPA LIMIT BREACHED",
+            ok_effluent
+        ),
+        unsafe_allow_html=True
+    )
+
 with col4:
-    # FIXED: Safely printing the exact model validation variable matching line 35
-    st.metric(label="ML Model R² Predictive Confidence", value=f"{model_accuracy:.2f} %", delta="Validated against Melbourne SCADA Records", delta_color="inverse")
+    ok_acc = model_accuracy >= 80.0
+    st.metric(
+        label="ML Model R² Predictive Confidence",
+        value=f"{model_accuracy:.2f} %"
+    )
+    st.markdown(
+        status_badge("Validated against Melbourne SCADA Records" if ok_acc else "Low Validation Accuracy", ok_acc),
+        unsafe_allow_html=True
+    )
 
 st.markdown("---")
 
