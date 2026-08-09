@@ -86,13 +86,13 @@ st.subheader("Asset Operational Expense (OPEX) Monitoring")
 fin_col1, fin_col2, fin_col3 = st.columns(3)
 
 with fin_col1:
-    ok_cost = daily_electrical_cost < 100.0  # Safe threshold example
+    ok_cost = daily_electrical_cost <= 50.0  # Budget limit $50.00/day
     st.metric(
         label="Blower Grid Energy Expenditures",
         value=f"${daily_electrical_cost:,.2f} / day"
     )
     st.markdown(
-        status_badge("Predicted SCADA kW Demand", ok_cost),
+        status_badge("Budget Limit: <$50.00/day" if ok_cost else "Over Budget (>$50.00)", ok_cost),
         unsafe_allow_html=True
     )
 
@@ -103,18 +103,18 @@ with fin_col2:
         value=f"${compliance_fine:,.2f} / day"
     )
     st.markdown(
-        status_badge(compliance_status, ok_fine),
+        status_badge("Target: $0.00/day (Compliant)" if ok_fine else "Penalty Breach Active", ok_fine),
         unsafe_allow_html=True
     )
 
 with fin_col3:
-    ok_total = total_facility_overhead < 100.0
+    ok_total = total_facility_overhead <= 50.0  # Total OPEX target
     st.metric(
         label="Total Combined Overhead Burden",
         value=f"${total_facility_overhead:,.2f} / day"
     )
     st.markdown(
-        status_badge("Total OPEX Risk Matrix", ok_total),
+        status_badge("Target Max: $50.00/day" if ok_total else "Overhead Exceeded", ok_total),
         unsafe_allow_html=True
     )
 
@@ -125,22 +125,24 @@ st.subheader("Live Engineering Performance Indicators")
 col1, col2, col3, col4 = st.columns(4)
 
 with col1:
+    ok_flow = 15000 <= slider_flow <= 75000  # Nominal hydraulic capacity range
     st.metric(
         label="Measured Hydraulic Loading",
         value=f"{slider_flow:,.0f} m³/day"
     )
     st.markdown(
-        status_badge("Real-Time SCADA Metering", True),
+        status_badge("Nominal: 15k–75k m³/day" if ok_flow else "Flow Out of Range", ok_flow),
         unsafe_allow_html=True
     )
 
 with col2:
+    ok_kwh = predicted_energy_kwh <= 350.0  # Blower energy threshold
     st.metric(
         label="Predicted Infrastructure Power Demand",
         value=f"{predicted_energy_kwh:,.1f} kWh"
     )
     st.markdown(
-        status_badge("ML Core Inference Engine", True),
+        status_badge("Target: <350.0 kWh" if ok_kwh else "High Power Demand (>350 kWh)", ok_kwh),
         unsafe_allow_html=True
     )
 
@@ -152,7 +154,7 @@ with col3:
     )
     st.markdown(
         status_badge(
-            f"EPA Limit Threshold: <{ENVIRONMENTAL_LIMIT_COD} mg/L" if ok_effluent else "EPA LIMIT BREACHED",
+            f"EPA Limit: <{ENVIRONMENTAL_LIMIT_COD:.0f} mg/L" if ok_effluent else "EPA Limit Breached",
             ok_effluent
         ),
         unsafe_allow_html=True
@@ -165,7 +167,7 @@ with col4:
         value=f"{model_accuracy:.2f} %"
     )
     st.markdown(
-        status_badge("Validated against Melbourne SCADA Records" if ok_acc else "Low Validation Accuracy", ok_acc),
+        status_badge("Benchmark: ≥80.0%" if ok_acc else "Low Validation Accuracy (<80%)", ok_acc),
         unsafe_allow_html=True
     )
 
