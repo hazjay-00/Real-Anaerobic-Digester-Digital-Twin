@@ -44,7 +44,7 @@ except FileNotFoundError:
 # --- SIDEBAR CONTROL PANEL ---
 st.sidebar.header("Live SCADA Actuator Controls")
 slider_flow = st.sidebar.slider("Average Inflow Volumetric Rate (m³/day)", 15000, 85000, 45000, step=1000)
-slider_cod_in = st.sidebar.slider("Incoming Organic Load (Influent COD mg/L)", 200, 1200, 580, step=20)
+slider_cod_in = st.sidebar.slider("Incoming Organic Load (mg/L)", 200, 1200, 580, step=20)
 slider_ammonia = st.sidebar.slider("Incoming Ammonia Load (mg/L)", 10.0, 80.0, 35.0, step=0.5)
 slider_temp = st.sidebar.slider("Influent Process Water Temperature (°C)", 5, 45, 18)
 
