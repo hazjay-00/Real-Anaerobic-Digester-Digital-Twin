@@ -22,9 +22,9 @@ def train_and_export_brain():
 
     # Clean whitespaces and force lowercase
     df.columns = df.columns.str.strip().str.lower()
-    print("Available CSV columns:", list(df.columns))
+    print("Available CSV columns in dataset:", list(df.columns))
 
-    # Flexible column mapping to handle name variations in the dataset
+    # Flexible column search
     def find_column(candidates):
         for candidate in candidates:
             for col in df.columns:
@@ -36,57 +36,60 @@ def train_and_export_brain():
     col_cod = find_column(['cod', 'cod_in', 's0'])
     col_ammonia = find_column(['am', 'nh4', 'ammonia', 'n_in'])
     col_temp = find_column(['t', 'temp', 'temperature'])
-    col_target = find_column(['total_grid', 'grid', 'power', 'energy', 'kwh'])
+    col_target = find_column(['total_grid', 'grid', 'power', 'energy', 'kwh', 'kw'])
 
-    # Verify that all required columns were found
-    matched_cols = {
-        'avg_inflow': col_inflow,
-        'cod': col_cod,
-        'am': col_ammonia,
-        't': col_temp,
-        'total_grid': col_target
-    }
-
-    missing = [k for k, v in matched_cols.items() if v is None]
-    if missing:
-        raise KeyError(f"Could not map dataset columns for: {missing}. Available columns: {list(df.columns)}")
-
-    # Rename matched columns to standard model names
-    df = df.rename(columns={
+    # Verify column resolution
+    mapping = {
         col_inflow: 'avg_inflow',
         col_cod: 'cod',
         col_ammonia: 'am',
         col_temp: 't',
         col_target: 'total_grid'
-    })
+    }
+
+    # Drop any unmapped None keys
+    rename_dict = {k: v for k, v in mapping.items() if k is not None}
+    
+    # Check if any required destination columns are missing
+    required_targets = {'avg_inflow', 'cod', 'am', 't', 'total_grid'}
+    found_targets = set(rename_dict.values())
+    missing_targets = required_targets - found_targets
+
+    if missing_targets:
+        raise KeyError(
+            f"Could not map dataset columns for {missing_targets}. "
+            f"Available CSV columns are: {list(df.columns)}"
+        )
+
+    # Apply column rename to dataframe
+    df = df.rename(columns=rename_dict)
 
     feature_columns = ['avg_inflow', 'cod', 'am', 't']
     target_column = 'total_grid'
 
-    # Clean up data strings or missing slots
+    # Convert numeric types
     for col in feature_columns + [target_column]:
         df[col] = pd.to_numeric(df[col], errors='coerce')
 
-    # Filter out offline maintenance plant logs and drop missing records
+    # Filter active plant operational logs and drop missing records
     cleaned_df = df[(df['avg_inflow'] > 5000) & (df['total_grid'] > 0)][feature_columns + [target_column]].dropna()
     print(f"Cleaned SCADA dataset contains {len(cleaned_df):,} active plant operational logs.")
 
-    # Train-Test Split (80/20 standard protocol)
+    # Train-Test Split
     X = cleaned_df[feature_columns]
     y = cleaned_df[target_column]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    print("Training Random Forest Regressor on active operational logs...")
+    print("Training Random Forest Regressor...")
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
 
     # Model Performance Verification
     y_pred = model.predict(X_test)
     real_r2 = r2_score(y_test, y_pred) * 100
-    print(f"\nModel Verification Complete!")
-    print(f"Real-World Cross-Validated R² Score: {real_r2:.2f}%")
+    print(f"\nModel Verification Complete! R² Score: {real_r2:.2f}%")
 
-    # Export artifacts cleanly
+    # Export artifacts
     artifacts = {
         "model": model,
         "r2_score": real_r2
