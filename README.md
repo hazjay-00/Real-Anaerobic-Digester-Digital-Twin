@@ -16,7 +16,7 @@ An empirical SCADA Machine Learning dashboard and process control interface mode
 
 ---
 
-## 🛠️ System Architecture & Data Pipeline
+## System Architecture & Data Pipeline
 
 The project is structured into three execution modules:
 
