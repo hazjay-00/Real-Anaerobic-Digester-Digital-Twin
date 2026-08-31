@@ -8,7 +8,8 @@ import pickle
 
 # Check if model exists; if not, train it automatically on deployment
 if not os.path.exists("wastewater_brain_cod.pkl"):
-    import ml_agent  # Running this script downloads Kaggle data and creates the .pkl file
+    import ml_agent
+    ml_agent.train_and_export_brain()
     
 st.set_page_config(page_title="Real Anaerobic Digester Digital Twin", layout="wide")
 
