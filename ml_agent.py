@@ -20,20 +20,54 @@ def train_and_export_brain():
     print(f"Loading dataset file: {csv_path}")
     df = pd.read_csv(csv_path)
 
-    # Clean whitespaces and force lowercase to match exactly
+    # Clean whitespaces and force lowercase
     df.columns = df.columns.str.strip().str.lower()
+    print("Available CSV columns:", list(df.columns))
 
-    # Explicit mapping using verified SCADA headers
+    # Flexible column mapping to handle name variations in the dataset
+    def find_column(candidates):
+        for candidate in candidates:
+            for col in df.columns:
+                if candidate in col:
+                    return col
+        return None
+
+    col_inflow = find_column(['avg_inflow', 'inflow', 'flow', 'q_in'])
+    col_cod = find_column(['cod', 'cod_in', 's0'])
+    col_ammonia = find_column(['am', 'nh4', 'ammonia', 'n_in'])
+    col_temp = find_column(['t', 'temp', 'temperature'])
+    col_target = find_column(['total_grid', 'grid', 'power', 'energy', 'kwh'])
+
+    # Verify that all required columns were found
+    matched_cols = {
+        'avg_inflow': col_inflow,
+        'cod': col_cod,
+        'am': col_ammonia,
+        't': col_temp,
+        'total_grid': col_target
+    }
+
+    missing = [k for k, v in matched_cols.items() if v is None]
+    if missing:
+        raise KeyError(f"Could not map dataset columns for: {missing}. Available columns: {list(df.columns)}")
+
+    # Rename matched columns to standard model names
+    df = df.rename(columns={
+        col_inflow: 'avg_inflow',
+        col_cod: 'cod',
+        col_ammonia: 'am',
+        col_temp: 't',
+        col_target: 'total_grid'
+    })
+
     feature_columns = ['avg_inflow', 'cod', 'am', 't']
     target_column = 'total_grid'
-
-    print(f"Mapping SCADA headers: Inputs {feature_columns} -> Target: '{target_column}'")
 
     # Clean up data strings or missing slots
     for col in feature_columns + [target_column]:
         df[col] = pd.to_numeric(df[col], errors='coerce')
 
-    # Filter out offline maintenance plant logs (inflow <= 5000 m³/day) and drop missing records
+    # Filter out offline maintenance plant logs and drop missing records
     cleaned_df = df[(df['avg_inflow'] > 5000) & (df['total_grid'] > 0)][feature_columns + [target_column]].dropna()
     print(f"Cleaned SCADA dataset contains {len(cleaned_df):,} active plant operational logs.")
 
