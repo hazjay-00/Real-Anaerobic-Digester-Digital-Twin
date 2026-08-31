@@ -24,22 +24,28 @@ def train_and_export_brain():
     df.columns = df.columns.str.strip().str.lower()
     print("Available CSV columns in dataset:", list(df.columns))
 
-    # Flexible column search
-    def find_column(candidates):
-        for candidate in candidates:
-            for col in df.columns:
-                if candidate in col:
-                    return col
+    # Exact or prioritized regex search for SCADA column names
+    def find_best_column(df_cols, candidates):
+        # 1. First pass: Check for exact match
+        for cand in candidates:
+            if cand in df_cols:
+                return cand
+        # 2. Second pass: Check for substring match (excluding single character ambiguous matches)
+        for cand in candidates:
+            if len(cand) > 1:
+                for col in df_cols:
+                    if cand in col:
+                        return col
         return None
 
-    col_inflow = find_column(['avg_inflow', 'inflow', 'flow', 'q_in'])
-    col_cod = find_column(['cod', 'cod_in', 's0'])
-    col_ammonia = find_column(['am', 'nh4', 'ammonia', 'n_in'])
-    col_temp = find_column(['t', 'temp', 'temperature'])
-    col_target = find_column(['total_grid', 'grid', 'power', 'energy', 'kwh', 'kw'])
+    col_inflow = find_best_column(df.columns, ['avg_inflow', 'q_in', 'inflow', 'flow'])
+    col_cod = find_best_column(df.columns, ['cod', 'cod_in', 's0'])
+    col_ammonia = find_best_column(df.columns, ['am', 'nh4', 'ammonia', 'n_in'])
+    col_temp = find_best_column(df.columns, ['temp', 'temperature', 'temp_in'])
+    col_target = find_best_column(df.columns, ['total_grid', 'grid', 'power', 'energy', 'kwh', 'kw'])
 
-    # Verify column resolution
-    mapping = {
+    # Build explicit renaming map
+    raw_matches = {
         col_inflow: 'avg_inflow',
         col_cod: 'cod',
         col_ammonia: 'am',
@@ -47,18 +53,18 @@ def train_and_export_brain():
         col_target: 'total_grid'
     }
 
-    # Drop any unmapped None keys
-    rename_dict = {k: v for k, v in mapping.items() if k is not None}
+    # Drop unmapped None keys
+    rename_dict = {k: v for k, v in raw_matches.items() if k is not None}
     
-    # Check if any required destination columns are missing
+    # Check if all 5 destination columns were mapped
     required_targets = {'avg_inflow', 'cod', 'am', 't', 'total_grid'}
     found_targets = set(rename_dict.values())
     missing_targets = required_targets - found_targets
 
     if missing_targets:
         raise KeyError(
-            f"Could not map dataset columns for {missing_targets}. "
-            f"Available CSV columns are: {list(df.columns)}"
+            f"Could not map dataset columns for required fields: {missing_targets}. "
+            f"Detected CSV columns are: {list(df.columns)}"
         )
 
     # Apply column rename to dataframe
@@ -67,7 +73,7 @@ def train_and_export_brain():
     feature_columns = ['avg_inflow', 'cod', 'am', 't']
     target_column = 'total_grid'
 
-    # Convert numeric types
+    # Convert numeric types safely
     for col in feature_columns + [target_column]:
         df[col] = pd.to_numeric(df[col], errors='coerce')
 
@@ -75,12 +81,12 @@ def train_and_export_brain():
     cleaned_df = df[(df['avg_inflow'] > 5000) & (df['total_grid'] > 0)][feature_columns + [target_column]].dropna()
     print(f"Cleaned SCADA dataset contains {len(cleaned_df):,} active plant operational logs.")
 
-    # Train-Test Split
+    # Train-Test Split (80/20 standard protocol)
     X = cleaned_df[feature_columns]
     y = cleaned_df[target_column]
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-    print("Training Random Forest Regressor...")
+    print("Training Random Forest Regressor on active operational logs...")
     model = RandomForestRegressor(n_estimators=100, random_state=42)
     model.fit(X_train, y_train)
 
@@ -89,7 +95,7 @@ def train_and_export_brain():
     real_r2 = r2_score(y_test, y_pred) * 100
     print(f"\nModel Verification Complete! R² Score: {real_r2:.2f}%")
 
-    # Export artifacts
+    # Export artifacts cleanly
     artifacts = {
         "model": model,
         "r2_score": real_r2
